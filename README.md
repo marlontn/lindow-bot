@@ -6,8 +6,8 @@ quiz based on said list.
 
 ## Dependencies
 
-Python 3.9
-Everything in requirements.txt
+- Python 3.9
+- Everything in requirements.txt
 
 ## Instructions:
 
