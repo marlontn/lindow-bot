@@ -13,7 +13,7 @@ Everything in requirements.txt
 
 - Install Python 3.9 and run the following:
 
-> $ pip install -r requirements.txt
+        $ pip install -r requirements.txt
 
 - Create a file called `super_secret.py` with the following variables:
 
