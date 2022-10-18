@@ -2,7 +2,7 @@ import requests
 import json
 from super_secret import api_key
 
-word = 'nociceptor'
+word = 'prescienc'
 url = f'https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={api_key}'
 
 r = requests.get(url)

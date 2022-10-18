@@ -1,5 +1,3 @@
-from ast import alias
-from code import interact
 from functools import lru_cache
 import discord
 from discord import ButtonStyle, app_commands
@@ -196,6 +194,16 @@ async def self(interaction: discord.Interaction, word: str):
     if 'error' in results:
         await interaction.response.send_message(f'Error: {results["error"]}')
         return
+
+    if 'similar' in results:
+        title = f'Couldn\'t find \'{word.lower()}\', did you mean:'
+        embed = discord.Embed(title=title, colour=discord.Colour.random())
+        for i, res in enumerate(results['similar']):
+            name = f'{i+1}. {res}'
+            if len(name) > 256: name = f'{name[:253]}...'
+            embed.add_field(name=name, value='\u200b', inline=True)
+        await interaction.response.send_message(embed=embed)
+        return
     
     con = sqlite3.connect('lindow.db')
     cur = con.cursor()
@@ -262,39 +270,39 @@ async def self(interaction: discord.Interaction):
         embed.add_field(name=name, value='\u200b', inline=False)
 
     class MyView(View):
-        @discord.ui.button(label='A', style=discord.ButtonStyle.blurple)
+        @discord.ui.button(label='A', style=ButtonStyle.blurple)
         async def button1(self, interaction, button):
             for i in range(4):
-                self.children[i].style = discord.ButtonStyle.green if ans == i else discord.ButtonStyle.red
+                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
                 self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == discord.ButtonStyle.green else '✖️'
+            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
             button.label = '\u200b'
             await interaction.response.edit_message(view=self)
         
-        @discord.ui.button(label='B', style=discord.ButtonStyle.blurple)
+        @discord.ui.button(label='B', style=ButtonStyle.blurple)
         async def button2(self, interaction, button):
             for i in range(4):
-                self.children[i].style = discord.ButtonStyle.green if ans == i else discord.ButtonStyle.red
+                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
                 self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == discord.ButtonStyle.green else '✖️'
+            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
             button.label = '\u200b'
             await interaction.response.edit_message(view=self)
         
-        @discord.ui.button(label='C', style=discord.ButtonStyle.blurple)
+        @discord.ui.button(label='C', style=ButtonStyle.blurple)
         async def button3(self, interaction, button):
             for i in range(4):
-                self.children[i].style = discord.ButtonStyle.green if ans == i else discord.ButtonStyle.red
+                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
                 self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == discord.ButtonStyle.green else '✖️'
+            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
             button.label = '\u200b'
             await interaction.response.edit_message(view=self)
         
-        @discord.ui.button(label='D', style=discord.ButtonStyle.blurple)
+        @discord.ui.button(label='D', style=ButtonStyle.blurple)
         async def button4(self, interaction, button):
             for i in range(4):
-                self.children[i].style = discord.ButtonStyle.green if ans == i else discord.ButtonStyle.red
+                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
                 self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == discord.ButtonStyle.green else '✖️'
+            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
             button.label = '\u200b'
             await interaction.response.edit_message(view=self)
         
@@ -324,7 +332,7 @@ async def self(interaction: discord.Interaction, limit: int=1):
         if not word: continue
         print(f'trying to add {word}')
         results = search(word)
-        if 'error' in results:
+        if 'error' in results or 'similar' in results:
             print(f'adding {word} failed')
             continue
         
