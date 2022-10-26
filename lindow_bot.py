@@ -209,7 +209,7 @@ async def self(interaction: discord.Interaction, word: str):
     cur = con.cursor()
 
     word = results['word']
-    if cur.execute(f'SELECT * FROM dictionary WHERE word="{word}"').fetchone():
+    if cur.execute('SELECT * FROM dictionary WHERE word=?',(word,)).fetchone():
         con.close()
         await interaction.response.send_message(f'{word} has already been added')
         return
@@ -219,7 +219,7 @@ async def self(interaction: discord.Interaction, word: str):
         _def = entry['def'].replace('"','""')
         #print(f'word: {word}, def: {_def}, fl: {fl}')
         #data.append((word,_def,pos,'all'))
-        cur.execute(f'''INSERT INTO dictionary VALUES("{word}","{_def}","{fl}","all")''')
+        cur.execute('INSERT INTO dictionary VALUES(?,?,?,"all")',(word,_def,fl))
 
     #res = cur.executemany('INSERT INTO dictionary VALUES(?,?,?,?)', data)
     con.commit()
@@ -235,13 +235,13 @@ async def self(interaction: discord.Interaction, word: str):
     con = sqlite3.connect('lindow.db')
     cur = con.cursor()
 
-    res = cur.execute(f'SELECT * FROM dictionary WHERE word="{word}"')
+    res = cur.execute('SELECT * FROM dictionary WHERE word=?', (word,))
     if not res.fetchone():
         con.close()
         await interaction.response.send_message(f'{word} not in database')
         return
         
-    res = cur.execute(f'DELETE FROM dictionary WHERE word="{word}"')
+    res = cur.execute('DELETE FROM dictionary WHERE word=?', (word,))
     con.commit()
     con.close()
     await interaction.response.send_message(f'{word} deleted from database')
@@ -251,10 +251,10 @@ async def self(interaction: discord.Interaction, word: str):
 async def self(interaction: discord.Interaction):
     con = sqlite3.connect('lindow.db')
     cur = con.cursor()
-    words = sample(cur.execute(f'SELECT DISTINCT word FROM dictionary').fetchall(), 4)
+    words = sample(cur.execute('SELECT DISTINCT word FROM dictionary').fetchall(), 4)
     options = []
     for word in words:
-        stuff = choice(cur.execute(f'SELECT def,type FROM dictionary WHERE word="{word[0]}"').fetchall())
+        stuff = choice(cur.execute('SELECT def,type FROM dictionary WHERE word=?',(word[0],)).fetchall())
         _def, _type = stuff
         options.append((word[0], _def, _type))
     
@@ -340,7 +340,7 @@ async def self(interaction: discord.Interaction, limit: int=1):
         cur = con.cursor()
 
         word = results['word']
-        if cur.execute(f'SELECT * FROM dictionary WHERE word="{word}"').fetchone():
+        if cur.execute('SELECT * FROM dictionary WHERE word=?',(word,)).fetchone():
             print(f'{word} already added')
             continue
 
@@ -348,7 +348,7 @@ async def self(interaction: discord.Interaction, limit: int=1):
             fl = entry['fl']
             _def = entry['def']
             #data.append((word,_def,pos,'all'))
-            cur.execute(f'''INSERT INTO dictionary VALUES("{word}","{_def}","{fl}","all")''')
+            cur.execute('INSERT INTO dictionary VALUES(?,?,?,"all")',(word,_def,fl))
 
         #res = cur.executemany('INSERT INTO dictionary VALUES(?,?,?,?)', data)
         con.commit()
@@ -388,18 +388,17 @@ async def self(interaction: discord.Interaction):
     prefix='Prefix to search for'
 )
 async def self(interaction: discord.Interaction, prefix: str):
-    prefix = prefix.lower()
+    prefix = ''.join(c for c in prefix.lower() if c.isalnum() or c in ' -')
     con = sqlite3.connect('lindow.db')
     cur = con.cursor()
 
     embed = discord.Embed(title='Word List', colour=discord.Colour.random())
-    res = cur.execute(
-        f'SELECT DISTINCT word FROM dictionary WHERE word GLOB \'[{prefix[0].capitalize()}{prefix[0]}]{prefix[1:]}*\' ORDER BY word COLLATE NOCASE ASC'
-        )
+    res = cur.execute(f'SELECT DISTINCT word FROM dictionary WHERE word GLOB \'[{prefix[0].capitalize()}{prefix[0]}]{prefix[1:]}*\' ORDER BY word COLLATE NOCASE ASC')
     
     name = prefix
     words = [word[0] for word in res.fetchall()]
     value = ', '.join(words)
+    if len(name) > 256: name = f'{name[:253]}...'
     if len(value) > 1024: value = value[:1021] + '...'
 
     if not value: value = '\u200b'
