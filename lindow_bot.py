@@ -1,14 +1,18 @@
-from functools import lru_cache
+import asyncio
+from bs4 import BeautifulSoup
+from datetime import datetime, time, timedelta
 import discord
 from discord import ButtonStyle, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ui import Button, View
+from functools import lru_cache
 from random import randint, choice, sample
 import requests
 import sqlite3
 import super_secret
 
 guild = discord.Object(id=super_secret.guild_id)
+DAILY_WORD_TIME = time(5,0,0)
 
 class MyBot(discord.Client):
     def __init__(self):
@@ -22,7 +26,8 @@ class MyBot(discord.Client):
         await tree.sync()
         await tree.sync(guild=guild)
         self.synced = True
-        await bot.change_presence(activity=discord.Game('Fighting aragami'))
+        await self.change_presence(activity=discord.Game('Fighting aragami'))
+        self.send_daily_word.start()
         print('Bot is online!')
     
     async def on_message(self, message):
@@ -36,6 +41,17 @@ class MyBot(discord.Client):
         if 'code vein' in message.content.lower():
             await message.channel.send('what a good game :weary:')
             return
+    
+    @tasks.loop(time=DAILY_WORD_TIME)
+    async def send_daily_word(self):
+        channel = self.get_channel(super_secret.betterwords_id)
+        url = 'https://www.merriam-webster.com/word-of-the-day'
+        response = requests.get(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        title = soup.title.string
+        word = title.split(': ', 1)[1].split(' |', 1)[0]
+        await channel.send(f'Word of the day: {word}')
+        print(f'Word of the day "{word}" has been sent')
 
 bot = MyBot()
 tree = app_commands.CommandTree(bot)

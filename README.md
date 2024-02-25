@@ -21,3 +21,4 @@ quiz based on said list.
         api_key = # Insert your own Merriam-Webster API key
         guild_id = # Insert the ID of your own guild/server
         betterwords_id = # Insert the ID of a channel in your server to use for `add_betterwords`
+        bot_channel_id = # Insert the ID of a channel in which your bot will send messages
