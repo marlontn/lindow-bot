@@ -7,6 +7,7 @@ from discord.ext import commands, tasks
 from discord.ui import Button, View
 from functools import lru_cache
 from random import randint, choice, sample
+from random_word import RandomWords
 import requests
 import sqlite3
 import super_secret
@@ -24,7 +25,7 @@ class MyBot(discord.Client):
     
     async def on_ready(self):
         await tree.sync()
-        await tree.sync(guild=guild)
+        #await tree.sync(guild=guild)
         self.synced = True
         await self.change_presence(activity=discord.Game('Fighting aragami'))
         self.send_daily_word.start()
@@ -127,7 +128,6 @@ async def self(interaction: discord.Interaction):
 @tree.command(name='sync', description='Syncs bot commands')
 async def self(interaction: discord.Interaction):
     await tree.sync()
-    await tree.sync(guild=guild)
     await interaction.response.send_message('Commands have been synced!')
 
 @tree.command(name='define_verbose', description='Looks up the verbose definition(s) of a given word')
@@ -163,11 +163,11 @@ async def self(interaction: discord.Interaction, word: str, spoiler: bool=False)
 
     await interaction.response.send_message(embed=embed)
 
+@tree.command(name='define', description='Looks up the definition of a given word')
 @app_commands.describe(
     word='Word to look up',
     spoiler='Whether you want the definition(s) to be spoiler-tagged or not'
     )
-@tree.command(name='define', description='Looks up the definition of a given word')
 async def self(interaction: discord.Interaction, word: str, spoiler: bool=False):
     results = search(word)
 
@@ -441,5 +441,28 @@ async def self(interaction: discord.Interaction, choices: app_commands.Choice[st
         await interaction.response.send_message('I picked rock, you lose!')
     else:
         await interaction.response.send_message('You forgot to pick something loser')
+
+@tree.command(name='random_word', description='Looks up and displays the definition of a random word')
+async def self(interaction: discord.Interaction):
+    words = RandomWords()
+    results = {'error': True}
+    while 'error' in results or 'similar' in results:
+        word = words.get_random_word()
+        results = search(word)
+    
+    title = results['word']
+    embed = discord.Embed(title=title, colour=discord.Colour.random())
+    for i, entry in enumerate(results['defs']):
+        fl = entry['fl']
+        _def = entry['def']
+        name = f'{i+1}. ({fl}) ||{_def}||'
+
+        if len(name) > 256: name = (f'{name[:251]}...||' if spoiler else f'{name[:253]}...')
+
+        value = '\u200b'
+
+        embed.add_field(name=name, value=value, inline=False)
+    
+    await interaction.response.send_message(embed=embed)
 
 bot.run(super_secret.token)
