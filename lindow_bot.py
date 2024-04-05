@@ -13,7 +13,7 @@ import sqlite3
 import super_secret
 
 guild = discord.Object(id=super_secret.guild_id)
-DAILY_WORD_TIME = time(5,0,0)
+DAILY_WORD_TIME = time(16,0,0)
 
 class MyBot(discord.Client):
     def __init__(self):
@@ -51,14 +51,41 @@ class MyBot(discord.Client):
         soup = BeautifulSoup(response.content, 'html.parser')
         title = soup.title.string
         word = title.split(': ', 1)[1].split(' |', 1)[0]
-        await channel.send(f'Word of the day: {word}')
+
+        results = search(word)
+
+        embed = create_word_embed(results, spoiler=True, title=f'WOTD: {results.get("word", word)}')
+        await channel.send(embed=embed)
         print(f'Word of the day "{word}" has been sent')
 
 bot = MyBot()
 tree = app_commands.CommandTree(bot)
 
+def create_word_embed(results: dict, spoiler: bool=False, title: str=None) -> discord.Embed:
+    if not title: title = results['word']
+    embed = discord.Embed(title=title, colour=discord.Colour.random())
+    
+    for i, entry in enumerate(results['defs']):
+        fl = entry['fl']
+        _def = entry['def']
+        name = f'{i+1}. ({fl}) ' + (f'||{_def}||' if spoiler else _def)
+
+        value = ''
+        if entry.get('ex'): value += '\nExample: ' + entry.get('ex')
+        if entry.get('syn'): value += '\nSynonyms: ' + ', '.join(entry.get('syn'))
+        if entry.get('ant'): value += '\nAntonyms: ' + ', '.join(entry.get('ant'))
+
+        if not value: value = '\u200b'
+
+        if len(name) > 256: name = (f'{name[:251]}...||' if spoiler else f'{name[:253]}...')
+        if len(value) > 1024: value = value[:1021] + '...'
+        
+        embed.add_field(name=name, value=value, inline=False)
+    
+    return embed
+
 @lru_cache
-def search(word):
+def search(word: str):
     word = ''.join(c for c in word.lower() if c.isalnum() or c in ' -\'')
     if not word: return dict()
     url = f'https://www.dictionaryapi.com/api/v3/references/collegiate/json/{word}?key={super_secret.api_key}'
@@ -88,7 +115,7 @@ def search(word):
     return {'word':act_word, 'defs':defs} if defs else {'error': f'{word.lower()} could not be found.'}
 
 @lru_cache
-def search_verbose(word):
+def search_verbose(word: str):
     word = ''.join(c for c in word.lower() if c.isalnum() or c == ' ')
     if not word: return dict()
     r = requests.get(f'https://api.dictionaryapi.dev/api/v2/entries/en/{word}')
@@ -97,6 +124,7 @@ def search_verbose(word):
         return {'error': f'{word.lower()} could not be found.'}
     
     results = r.json()
+
     act_word = ''
     defs = []
     for res in results:
@@ -142,25 +170,7 @@ async def self(interaction: discord.Interaction, word: str, spoiler: bool=False)
         await interaction.response.send_message(f'Error: {results["error"]}')
         return
     
-    title = results['word']
-    embed = discord.Embed(title=title, colour=discord.Colour.random())
-    for i, entry in enumerate(results['defs']):
-        fl = entry['fl']
-        _def = entry['def']
-        name = f'{i+1}. ({fl}) ' + (f'||{_def}||' if spoiler else _def)
-
-        value = ''
-        if entry['ex']: value += '\nExample: ' + entry['ex']
-        if entry['syn']: value += '\nSynonyms: ' + ', '.join(entry['syn'])
-        if entry['ant']: value += '\nAntonyms: ' + ', '.join(entry['ant'])
-
-        if not value: value = '\u200b'
-
-        if len(name) > 256: name = (f'{name[:251]}...||' if spoiler else f'{name[:253]}...')
-        if len(value) > 1024: value = value[:1021] + '...'
-        
-        embed.add_field(name=name, value=value, inline=False)
-
+    embed = create_word_embed(results, spoiler=spoiler)
     await interaction.response.send_message(embed=embed)
 
 @tree.command(name='define', description='Looks up the definition of a given word')
@@ -185,19 +195,7 @@ async def self(interaction: discord.Interaction, word: str, spoiler: bool=False)
         await interaction.response.send_message(embed=embed)
         return
     
-    title = results['word']
-    embed = discord.Embed(title=title, colour=discord.Colour.random())
-    for i, entry in enumerate(results['defs']):
-        fl = entry['fl']
-        _def = entry['def']
-        name = f'{i+1}. ({fl}) ' + (f'||{_def}||' if spoiler else _def)
-
-        if len(name) > 256: name = (f'{name[:251]}...||' if spoiler else f'{name[:253]}...')
-
-        value = '\u200b'
-
-        embed.add_field(name=name, value=value, inline=False)
-
+    embed = create_word_embed(results, spoiler=spoiler)
     await interaction.response.send_message(embed=embed)
 
 @tree.command(name='add_word', description='Adds word to the dictionary database')
@@ -286,41 +284,29 @@ async def self(interaction: discord.Interaction):
         embed.add_field(name=name, value='\u200b', inline=False)
 
     class MyView(View):
-        @discord.ui.button(label='A', style=ButtonStyle.blurple)
-        async def button1(self, interaction, button):
+        async def setup_button(self, interaction, button):
             for i in range(4):
                 self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
                 self.children[i].disabled = True
             button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
             button.label = '\u200b'
             await interaction.response.edit_message(view=self)
+
+        @discord.ui.button(label='A', style=ButtonStyle.blurple)
+        async def button1(self, interaction, button):
+            await self.setup_button(interaction, button)
         
         @discord.ui.button(label='B', style=ButtonStyle.blurple)
         async def button2(self, interaction, button):
-            for i in range(4):
-                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
-                self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
-            button.label = '\u200b'
-            await interaction.response.edit_message(view=self)
+            await self.setup_button(interaction, button)
         
         @discord.ui.button(label='C', style=ButtonStyle.blurple)
         async def button3(self, interaction, button):
-            for i in range(4):
-                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
-                self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
-            button.label = '\u200b'
-            await interaction.response.edit_message(view=self)
+            await self.setup_button(interaction, button)
         
         @discord.ui.button(label='D', style=ButtonStyle.blurple)
         async def button4(self, interaction, button):
-            for i in range(4):
-                self.children[i].style = ButtonStyle.green if ans == i else ButtonStyle.red
-                self.children[i].disabled = True
-            button.emoji = '✔️' if button.style == ButtonStyle.green else '✖️'
-            button.label = '\u200b'
-            await interaction.response.edit_message(view=self)
+            await self.setup_button(interaction, button)
         
         async def interaction_check(self, view_interaction: discord.Interaction) -> bool:
             if interaction.user != view_interaction.user:
@@ -449,20 +435,8 @@ async def self(interaction: discord.Interaction):
     while 'error' in results or 'similar' in results:
         word = words.get_random_word()
         results = search(word)
-    
-    title = results['word']
-    embed = discord.Embed(title=title, colour=discord.Colour.random())
-    for i, entry in enumerate(results['defs']):
-        fl = entry['fl']
-        _def = entry['def']
-        name = f'{i+1}. ({fl}) ||{_def}||'
 
-        if len(name) > 256: name = (f'{name[:251]}...||' if spoiler else f'{name[:253]}...')
-
-        value = '\u200b'
-
-        embed.add_field(name=name, value=value, inline=False)
-    
+    embed = create_word_embed(results, spoiler=True)
     await interaction.response.send_message(embed=embed)
 
 bot.run(super_secret.token)
